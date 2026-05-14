@@ -1,8 +1,8 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
 from pydantic import BaseModel
+from typing import Optional
 import database
 import os
 
@@ -17,6 +17,10 @@ app.add_middleware(
 
 class TaskCreate(BaseModel):
     title: str
+    description: str = ""
+    priority: str = "medium"
+    start_date: Optional[str] = None
+    due_date: Optional[str] = None
 
 class TaskUpdate(BaseModel):
     status: str
@@ -31,7 +35,9 @@ def get_tasks():
 
 @app.post("/api/tasks")
 def create_task(task: TaskCreate):
-    return database.create_task(task.title)
+    if task.priority not in ("high", "medium", "low"):
+        raise HTTPException(status_code=400, detail="유효하지 않은 우선순위입니다")
+    return database.create_task(task.title, task.description, task.priority, task.start_date, task.due_date)
 
 @app.delete("/api/tasks/{task_id}")
 def delete_task(task_id: int):
@@ -47,6 +53,5 @@ def update_task_status(task_id: int, task: TaskUpdate):
         raise HTTPException(status_code=404, detail="업무를 찾을 수 없습니다")
     return database.get_task(task_id)
 
-# 프론트엔드 정적 파일 서빙
 frontend_path = os.path.join(os.path.dirname(__file__), "..", "frontend")
 app.mount("/", StaticFiles(directory=frontend_path, html=True), name="frontend")
